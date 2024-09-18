@@ -7,6 +7,41 @@
 #include "spinlock.h"
 #include "proc.h"
 
+
+// Author: Josiah Brough
+// SID: 22160417
+int 
+sys_pageAccess(void)
+{
+  // Get the three function arguments from the pageAccess() system call
+  uint64 usrpage_ptr; // First argument - pointer to user space address
+  int npages;         // Second argument - the number of pages to examine
+  uint64 usraddr;     // Third argument - pointer to the bitmap
+  if(argaddr(0, &usrpage_ptr) < 0) return -1;
+  if(argint(1, &npages) < 0) return -1;
+  if(argaddr(2, &usraddr) < 0) return -1;
+  if(npages > 64 || npages < 0) return -1; // ensure npages is within bounds
+
+  struct proc *p = myproc();
+
+  uint64 bitmap = 0;
+
+  for (int i = 1; i < npages; ++i) {
+    uint64 page_va = usrpage_ptr + (i * PGSIZE); // get virtual address
+    pte_t *pte = walk(p->pagetable, page_va, 0); // find pagetable entry
+
+    if(!pte) continue;            // check its mapped
+    if(!(*pte & PTE_V)) continue; // ensure its valid
+    if(*pte & PTE_A) {            // check its accessed
+      bitmap |= (1 << i);
+    }
+  }
+
+  // Return the bitmap pointer to the user program
+  copyout(p->pagetable, usraddr, (char *)&bitmap, sizeof(bitmap));
+  return 0;
+}
+
 uint64
 sys_exit(void)
 {
