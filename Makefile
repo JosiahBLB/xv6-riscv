@@ -30,6 +30,10 @@ OBJS = \
   $K/plic.o \
   $K/virtio_disk.o
 
+ifndef SCHEDULER
+SCHEDULER := RR
+endif
+
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
 #TOOLPREFIX = 
@@ -70,6 +74,8 @@ endif
 ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]nopie'),)
 CFLAGS += -fno-pie -nopie
 endif
+
+CFLAGS += -D$(SCHEDULER)
 
 LDFLAGS = -z max-page-size=4096
 
@@ -132,6 +138,7 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
+	$U/_schedtest\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

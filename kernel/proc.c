@@ -97,6 +97,25 @@ allocpid() {
   return pid;
 }
 
+void 
+update_timings(void) {
+  struct proc *p;
+  for (p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+
+    if (p->state == RUNNING) {
+      p->run_time += 1;
+    } else if (p->state == RUNNABLE) {
+      p->wait_time += 1;
+    } else if (p->state == SLEEPING) {
+      p->sleep_time += 1;
+    }
+
+    release(&p->lock);
+  }
+}
+
+
 // Look in the process table for an UNUSED proc.
 // If found, initialize state required to run in the kernel,
 // and return with p->lock held.
@@ -119,6 +138,11 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->run_time = 0;
+  p->wait_time = 0;
+  p->sleep_time = 0;
+  p->exit_time = 0;
+  p->create_time = ticks;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -370,6 +394,7 @@ exit(int status)
 
   p->xstate = status;
   p->state = ZOMBIE;
+  p->exit_time = ticks;
 
   release(&wait_lock);
 
@@ -427,6 +452,55 @@ wait(uint64 addr)
   }
 }
 
+int wait2(uint64 addr, uint *rtime, uint *wtime, uint *stime) {
+  struct proc *np;
+  int havekids, pid;
+  struct proc *p = myproc();
+
+  acquire(&wait_lock);
+
+  for (;;) {
+    // Scan through table looking for exited children.
+    havekids = 0;
+    for (np = proc; np < &proc[NPROC]; np++) {
+      if (np->parent == p) {
+        // make sure the child isn't still in exit() or swtch().
+        acquire(&np->lock);
+
+        havekids = 1;
+        if (np->state == ZOMBIE) {
+          // Found one.
+          pid = np->pid;
+          *rtime = np->run_time;
+          *wtime = np->wait_time;
+          *stime = np->sleep_time;
+          if (addr != 0 &&
+              copyout(p->pagetable, addr, (char *)&np->xstate,
+                sizeof(np->xstate)) < 0) {
+            release(&np->lock);
+            release(&wait_lock);
+            return -1;
+          }
+          freeproc(np);
+          release(&np->lock);
+          release(&wait_lock);
+          return pid;
+        }
+        release(&np->lock);
+      }
+    }
+
+    // No point waiting if we don't have any children.
+    if (!havekids || p->killed) {
+      release(&wait_lock);
+      return -1;
+    }
+
+    // Wait for a child to exit.
+    sleep(p, &wait_lock); // DOC: wait-sleep
+  }
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -444,10 +518,10 @@ scheduler(void)
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
-
-    for(p = proc; p < &proc[NPROC]; p++) {
+#ifdef RR // Round Robin
+    for (p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
+      if (p->state == RUNNABLE) {
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
@@ -461,6 +535,33 @@ scheduler(void)
       }
       release(&p->lock);
     }
+#endif /* ifdef RR */
+#ifdef FCFS // First-Come First-Serve
+    struct proc* firstproc = 0;
+
+    for(p = proc; p < &proc[NPROC]; p++) {  // Go through all PCBs
+      acquire(&p->lock);
+      if(p->state == RUNNABLE) {   // If process is RUNNABLE
+        if(!firstproc || p->create_time < firstproc->create_time) {  // Either haven't found one, or this process is earlier
+          if(firstproc)
+            release(&firstproc->lock);  // Release the previously found process, if it exists
+          firstproc = p;           // This process is the earliest
+          continue;                // Go to next one in proc
+        }
+      }
+      release(&p->lock);
+    }
+
+    if(firstproc) {                // Make this the RUNNING process
+      firstproc->state = RUNNING;
+
+      c->proc = firstproc;
+      swtch(&c->context, &firstproc->context);
+
+      c->proc = 0;
+      release(&firstproc->lock);
+    }
+#endif /* ifdef FCFS */
   }
 }
 
