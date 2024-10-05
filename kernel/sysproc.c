@@ -7,6 +7,69 @@
 #include "spinlock.h"
 #include "proc.h"
 
+extern struct proc proc[NPROC];
+
+// Desc: Prints current system processes.
+// Author: Josiah Brough
+// SID: 22160417
+uint64 
+sys_ps(void) 
+{
+  struct proc *p;
+
+  // header row
+  printf("[PID]\t\t[STATE]\t\t[NAME]\t\t[SZ]\n");
+
+  // loop through processes in table
+  for (p = proc; p < &proc[NPROC]; p++) 
+  {
+    int pid = p->pid;
+
+    // get state as a string
+    char *state = "???";
+    switch (p->state) 
+    {
+      case UNUSED: continue;
+      case USED:      state = "used\t"; break;
+      case SLEEPING:  state = "sleeping"; break;
+      case RUNNABLE:  state = "runnable"; break;
+      case RUNNING:   state = "running\t"; break;
+      case ZOMBIE:    state = "zombie\t"; break;
+    }
+
+    // print process information
+    printf("%d\t\t%s\t%s\t\t%d\n", pid, state, p->name, p->sz);
+  }
+   
+  return 0;
+}
+
+// Desc: Prints current running system processes.
+// Author: Josiah Brough
+// SID: 22160417
+uint64 
+sys_psrunning(void) 
+{
+  struct proc *p;
+
+  // header row
+  printf("[PID]\t\t[STATE]\t\t[NAME]\t\t[SZ]\n");
+
+  // loop through processes in table
+  for (p = proc; p < &proc[NPROC]; p++) 
+  {
+    int pid = p->pid;
+
+    // print running processes' information
+    if (p->state == RUNNING) 
+    {
+      printf("%d\t\trunning\t\t%s\t\t%d\n", pid, p->name, p->sz);
+    }
+  }
+   
+  return 0;
+}
+
 uint64
 sys_exit(void)
 {
