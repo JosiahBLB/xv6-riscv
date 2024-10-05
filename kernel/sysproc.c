@@ -6,6 +6,34 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "file.h"
+
+uint64 sys_lseek(void)
+{
+  // retrieve user args
+  int fd;
+  int offset;
+  argint(0, &fd);
+  argint(1, &offset);
+
+  // find the open file
+  struct proc *p = myproc();
+  struct file *file = p->ofile[fd];
+
+  // ensure it is a file
+  if (file->type != FD_INODE)
+    return -1;
+
+  // update the fd offset
+  ilock(file->ip); // acquire lock
+  if (offset > file->ip->size) {
+    file->off = file->ip->size - 1;
+  } else {
+    file->off = offset;
+  }
+  iunlock(file->ip); // release lock
+  return file->off;
+}
 
 uint64
 sys_exit(void)
