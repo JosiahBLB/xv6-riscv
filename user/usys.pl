@@ -37,3 +37,5 @@ entry("sbrk");
 entry("sleep");
 entry("uptime");
 entry("wait2");
+entry("setnice");
+entry("getnice");

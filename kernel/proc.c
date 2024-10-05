@@ -138,6 +138,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->nice = 10; // default value
   p->run_time = 0;
   p->wait_time = 0;
   p->sleep_time = 0;
@@ -562,6 +563,30 @@ scheduler(void)
       release(&firstproc->lock);
     }
 #endif /* ifdef FCFS */
+#ifdef PRIORITY
+    struct proc* nicestproc = 0;
+    for(p = proc; p < &proc[NPROC]; p++) {  // Go through all PCBs
+      acquire(&p->lock);
+      if(p->state == RUNNABLE) {   // If process is RUNNABLE
+        if (!nicestproc || p->nice > nicestproc->nice ) { // Either haven't found one, or this process is nicer
+          if(nicestproc) release(&nicestproc->lock);      // Release the previously found process, if it exists
+          nicestproc = p;                                 // This process is the current nicest
+          continue;                                       // Go to next one in proc
+        }
+      }
+      release(&p->lock);
+    }
+
+    if(nicestproc) {                // Make this the RUNNING process
+      nicestproc->state = RUNNING;
+
+      c->proc = nicestproc;
+      swtch(&c->context, &nicestproc->context);
+
+      c->proc = 0;
+      release(&nicestproc->lock);
+    }
+#endif /* ifdef PRIORITY */
   }
 }
 

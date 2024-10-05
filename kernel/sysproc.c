@@ -7,6 +7,9 @@
 #include "spinlock.h"
 #include "proc.h"
 
+// tell the compiler this is defined elsewhere
+extern struct proc proc[NPROC];
+
 uint64
 sys_exit(void)
 {
@@ -38,7 +41,8 @@ sys_wait(void)
   return wait(p);
 }
 
-uint64 sys_wait2(void) {
+uint64 sys_wait2(void) 
+{
   uint64 addr, addr1, addr2, addr3;
   uint wtime, rtime, stime;
   if (argaddr(0, &addr) < 0)
@@ -116,4 +120,60 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+// Desc: Sets the nice value of the specified process.
+// Args: int pid: the pid of the target process.
+//       int n:   the new nice value.
+// Author: Josiah Brough
+// SID: 22160417
+uint64
+sys_setnice(void)
+{
+  // retrive args
+  int pid;
+  int n;
+  if (argint(0, &pid) < 0) return -1;
+  if (argint(0, &n) < 0) return -1;
+
+  // declare vars
+  struct proc *p;
+  uint64 prev_nice;
+
+  // search proc for matching pid
+  for(p = proc; p < &proc[NPROC]; p++) {
+    if (p->pid == pid) { // update nice value
+      prev_nice = p->nice;
+      p->nice = n;
+      return prev_nice;
+    }
+  }
+
+  // return not found
+  return -1;
+}
+
+// Desc: Gets the nice value of the specified process.
+// Args: int pid: the pid of the target process.
+// Author: Josiah Brough
+// SID: 22160417
+uint64
+sys_getnice(void)
+{
+  // retrieve args
+  int pid;
+  if (argint(0, &pid) < 0) return -1;
+
+  // declare var
+  struct proc *p;
+
+  // search proc for matching pid
+  for(p = proc; p < &proc[NPROC]; p++) {
+    if (p->pid == pid) {
+      return p->nice; // return nice value
+    }
+  }
+
+  // return not found
+  return -1;
 }

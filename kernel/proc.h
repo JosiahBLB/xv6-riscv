@@ -105,6 +105,7 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  uint64 nice;                 // The niceness of the process of range [0, 20]
 
   // debugging
   uint64 create_time;

@@ -24,6 +24,8 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 int wait2(int*, int*, int*, int*);
+int setnice(int pid, int n);
+int getnice(int pid);
 
 // ulib.c
 int stat(const char*, struct stat*);
