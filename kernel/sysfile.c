@@ -16,6 +16,19 @@
 #include "file.h"
 #include "fcntl.h"
 
+int
+sys_testlock(void)
+{
+  static struct sleeplock lk;
+
+  if(holdingsleep(&lk))
+    releasesleep(&lk);
+  else
+    acquiresleep(&lk);
+
+  return 0;
+}
+
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 static int
