@@ -6,6 +6,11 @@
 #include "spinlock.h"
 #include "proc.h"
 
+uint64 sys_getthisprocsize(void) {
+  struct proc *p = myproc(); // Pointer to the PCB structure
+  return p->sz; // returns the size in bytes
+}
+
 uint64
 sys_exit(void)
 {
